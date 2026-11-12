@@ -1,0 +1,30 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to deploy (e.g. 1.0.1, or an older one to roll back)"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false # never cancel a deploy halfway
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    environment: production # waits for a reviewer
+    steps:
+      - name: Deploy on the self-hosted runner
+        shell: powershell # the runner is a Windows machine
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          $image = "ghcr.io/" + $env:GITHUB_REPOSITORY.ToLower()
+          $old = docker ps -aq --filter "name=^lab11-prod$"
+          if ($old) { docker rm -f $old | Out-Null }
+          docker run -d --name lab11-prod -p 8012:8000 ("{0}:{1}" -f $image, $env:TAG)
